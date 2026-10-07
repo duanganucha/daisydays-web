@@ -14,7 +14,7 @@ const ASSETS = [
   'js/app.js',
   'js/store.js',
   'js/cycle.js',
-  'js/i18n.js',
+  'js/data.js',
   'manifest.json',
   'icons/icon.svg',
   'icons/icon-192.png',
