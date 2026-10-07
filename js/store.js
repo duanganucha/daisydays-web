@@ -6,41 +6,20 @@
  *   logs: { 'YYYY-MM-DD': { period, symptoms: [], energy: 0..5, note } }
  */
 
+import { isDateKey } from './date.js';
+
 const K_LOGS = 'dd.logs.v1';
 const K_SETTINGS = 'dd.settings.v1';
 
 const DEFAULT_SETTINGS = {
   name: '',
+  locale: 'th',
   cycleLength: 28,
   periodLength: 5,
 };
 
-/* ────────────────────────────── วันที่ (เวลาท้องถิ่น) ───────────────────────────── */
-
-/** 'YYYY-MM-DD' ของ Date — ใช้เวลาท้องถิ่น ห้ามใช้ toISOString() เพราะวันจะเลื่อนในไทย */
-export function iso(d) {
-  const p = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
-
-/** Date จาก 'YYYY-MM-DD' ตั้งเวลาเที่ยงวันเพื่อกัน DST เลื่อนวัน */
-export function parseISO(s) {
-  const [y, m, d] = s.split('-').map(Number);
-  return new Date(y, m - 1, d, 12, 0, 0, 0);
-}
-
-export const today = () => iso(new Date());
-
-export function addDays(isoStr, n) {
-  const d = parseISO(isoStr);
-  d.setDate(d.getDate() + n);
-  return iso(d);
-}
-
-/** จำนวนวันจาก a ถึง b (b − a) */
-export function daysBetween(a, b) {
-  return Math.round((parseISO(b) - parseISO(a)) / 86400000);
-}
+/** ส่งต่อตัวช่วยวันที่ เพื่อให้ไฟล์ UI import จากที่เดียวได้ */
+export { iso, parseISO, today, addDays, daysBetween } from './date.js';
 
 /* ──────────────────────────────── สถานะในหน่วยความจำ ───────────────────────────── */
 
@@ -61,7 +40,7 @@ function loadLogs() {
     if (!raw) return {};
     const out = {};
     for (const [day, log] of Object.entries(JSON.parse(raw))) {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(day)) out[day] = normalizeLog(log);
+      if (isDateKey(day)) out[day] = normalizeLog(log);
     }
     return out;
   } catch (e) {
@@ -148,7 +127,7 @@ export function importJSON(text) {
 
   const next = {};
   for (const [day, log] of Object.entries(raw.logs)) {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(day)) next[day] = normalizeLog(log);
+    if (isDateKey(day)) next[day] = normalizeLog(log);
   }
   logs = next;
   settings = { ...DEFAULT_SETTINGS, ...(raw.settings || {}) };

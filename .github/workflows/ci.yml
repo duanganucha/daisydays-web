@@ -1,0 +1,166 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: เทสต์ (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # ไม่มี npm install เพราะโปรเจกต์นี้ไม่มี dependency เลย — นั่นคือข้อตกลงของโปรเจกต์
+      - name: รันเทสต์
+        run: node --test 'tests/*.test.js'
+
+  no-dependencies:
+    name: ต้องไม่มี dependency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ห้ามมี dependencies ใน package.json
+        run: |
+          if node -e "const p=require('./package.json');process.exit((p.dependencies||p.devDependencies)?1:0)"; then
+            echo "✅ ไม่มี dependency"
+          else
+            echo "::error::โปรเจกต์นี้ต้องไม่มี dependency รันไทม์หรือ dev — ดู CONTRIBUTING.md ข้อ 3"
+            exit 1
+          fi
+
+      - name: ห้าม commit node_modules หรือ lockfile
+        run: |
+          fail=0
+          for f in node_modules package-lock.json yarn.lock pnpm-lock.yaml; do
+            if [ -e "$f" ]; then echo "::error::ไม่ควรมี $f ใน repo"; fail=1; fi
+          done
+          exit $fail
+
+  privacy:
+    name: ตรวจว่าไม่มีการส่งข้อมูลออก
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ข้อตกลงข้อ 1: ข้อมูลรอบเดือนต้องไม่ออกจากเครื่องผู้ใช้
+      - name: ห้ามมี fetch / XHR / WebSocket / sendBeacon ใน js/
+        run: |
+          if grep -rnE '\b(fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon)\s*\(' js/; then
+            echo "::error::พบการเรียกเครือข่ายใน js/ — แอปนี้ห้ามส่งข้อมูลออกนอกเครื่อง (CONTRIBUTING.md ข้อ 1)"
+            exit 1
+          fi
+          echo "✅ ไม่มีการเรียกเครือข่ายใน js/"
+
+      - name: ห้ามมี analytics / tracker ที่รู้จัก
+        run: |
+          if grep -rniE 'google-analytics|googletagmanager|gtag\(|mixpanel|amplitude|hotjar|sentry|posthog|segment\.com|facebook\.net|fbq\(' js/ css/ index.html; then
+            echo "::error::พบ analytics หรือ tracker — ห้ามเด็ดขาด (CONTRIBUTING.md ข้อ 1)"
+            exit 1
+          fi
+          echo "✅ ไม่มี analytics"
+
+      - name: ห้ามใช้ cookie
+        run: |
+          if grep -rn 'document\.cookie' js/ index.html; then
+            echo "::error::แอปนี้ไม่ใช้ cookie"
+            exit 1
+          fi
+          echo "✅ ไม่มี cookie"
+
+      - name: ห้ามมีสคริปต์จาก CDN ภายนอกใน index.html
+        run: |
+          if grep -nE '<script[^>]+src="https?://' index.html; then
+            echo "::error::ห้ามโหลดสคริปต์จากภายนอก (CONTRIBUTING.md ข้อ 3)"
+            exit 1
+          fi
+          echo "✅ ไม่มีสคริปต์ภายนอก"
+
+  no-build-step:
+    name: ต้องเปิดใช้ได้ทันทีโดยไม่ต้อง build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ห้ามใช้ toISOString() ในการคิดวันที่
+        run: |
+          # ถ้าใช้ UTC วันจะเลื่อนในไทย (UTC+7) — เทสต์ใน tests/date.test.js กันไว้อีกชั้น
+          # จับแค่การเรียกจริง (มีจุดนำหน้า) ไม่ใช่คอมเมนต์ที่เตือนห้ามใช้
+          if grep -rnE '\.toISOString\s*\(' js/; then
+            echo "::error::ห้ามใช้ toISOString() — ใช้ iso() จาก js/date.js (CONTRIBUTING.md)"
+            exit 1
+          fi
+          echo "✅ ไม่มี toISOString"
+
+      - name: ไฟล์ทุกไฟล์ใน js/ กับ css/ ต้องอยู่ใน ASSETS ของ sw.js
+        run: |
+          missing=0
+          while IFS= read -r f; do
+            if ! grep -q "'$f'" sw.js; then
+              echo "::error file=sw.js::$f ไม่อยู่ในอาร์เรย์ ASSETS ของ sw.js → ออฟไลน์จะพัง"
+              missing=1
+            fi
+          done < <(find js css -type f \( -name '*.js' -o -name '*.css' \) | sort)
+          if [ "$missing" = "0" ]; then echo "✅ ASSETS ครบ"; fi
+          exit $missing
+
+      - name: เตือนถ้าแก้ไฟล์ใน ASSETS แล้วไม่ขึ้นเลข CACHE
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          base="origin/${{ github.base_ref }}"
+          changed=$(git diff --name-only "$base"...HEAD -- js css index.html manifest.json || true)
+          if [ -n "$changed" ]; then
+            old=$(git show "$base":sw.js | grep -oE "daisydays-v[0-9]+" | head -1)
+            new=$(grep -oE "daisydays-v[0-9]+" sw.js | head -1)
+            echo "ไฟล์ที่เปลี่ยน:"; echo "$changed"
+            echo "CACHE: $old -> $new"
+            if [ "$old" = "$new" ]; then
+              echo "::error file=sw.js::แก้ไฟล์ที่ถูกแคชไว้แล้วแต่ยังไม่ขึ้นเลข CACHE ($new) — ผู้ใช้เดิมจะได้ไฟล์เก่าตลอดไป"
+              exit 1
+            fi
+            echo "✅ ขึ้นเลข CACHE แล้ว"
+          else
+            echo "ไม่มีไฟล์ที่ถูกแคชเปลี่ยน ข้ามการตรวจ"
+          fi
+
+  locales:
+    name: ตรวจความครบของไฟล์ภาษา
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # รายงานเป็นรายภาษาเพื่อให้คนส่ง PR แปลภาษาอ่านง่าย
+      - name: สรุปคีย์ที่ขาดของแต่ละภาษา
+        run: |
+          node --input-type=module -e "
+          import { LOCALES, missingKeys } from './js/i18n.js';
+          let bad = 0;
+          for (const code of Object.keys(LOCALES)) {
+            const missing = missingKeys(code);
+            if (missing.length === 0) {
+              console.log(\`✅ \${code} (\${LOCALES[code].name}) — ครบ\`);
+            } else {
+              bad = 1;
+              console.log(\`❌ \${code} (\${LOCALES[code].name}) — ขาด \${missing.length} คีย์\`);
+              for (const m of missing) console.log('     ' + m);
+            }
+          }
+          process.exit(bad);
+          "

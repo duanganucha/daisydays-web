@@ -5,15 +5,19 @@
  * คาดการณ์เป็นค่าประมาณเท่านั้น — ไม่ใช่การคุมกำเนิดและไม่ใช่คำวินิจฉัย
  */
 
-import { addDays, daysBetween, iso, parseISO } from './store.js';
-import { PHASES } from './data.js';
+import { addDays, daysBetween, iso, parseISO } from './date.js';
+import {
+  PHASES, CYCLE_RANGE, AVG_WINDOW,
+  OVULATION_BEFORE_NEXT, FERTILE_WINDOW,
+  PATTERN_MIN_PHASE_DAYS, PATTERN_MIN_PCT,
+} from './data.js';
 
 /**
  * ช่วงของรอบ ณ วันที่ n ของรอบที่ยาว len วัน
  * ลำดับการตัดสินสำคัญ: เมนส์ → PMS → ไข่ตก → ฟอลลิคูลาร์ → ลูเทียล
  */
 export function phaseFor(day, len, periodLen) {
-  const ov = len - 14;
+  const ov = len - OVULATION_BEFORE_NEXT;
   if (day <= periodLen) return 'menstrual';
   if (day > len - 5) return 'pms';
   if (Math.abs(day - ov) <= 1) return 'ovulation';
@@ -39,10 +43,10 @@ export function engine(state) {
   const lengths = [];
   for (let i = 1; i < starts.length; i++) {
     const len = daysBetween(starts[i - 1], starts[i]);
-    if (len >= 18 && len <= 45) lengths.push(len);
+    if (len >= CYCLE_RANGE.min && len <= CYCLE_RANGE.max) lengths.push(len);
   }
 
-  const recent = lengths.slice(-6);
+  const recent = lengths.slice(-AVG_WINDOW);
   const avgLength = recent.length
     ? Math.round(recent.reduce((a, b) => a + b, 0) / recent.length)
     : settings.cycleLength;
@@ -70,7 +74,7 @@ export function engine(state) {
     let predicted = false;
     let cycleDay = daysBetween(start, day) + 1;
 
-    if (len === null || len < 18 || len > 45) {
+    if (len === null || len < CYCLE_RANGE.min || len > CYCLE_RANGE.max) {
       len = avgLength;
       if (cycleDay > len) {
         predicted = true;
@@ -78,13 +82,13 @@ export function engine(state) {
       }
     }
 
-    const ov = len - 14;
+    const ov = len - OVULATION_BEFORE_NEXT;
     return {
       cycleDay,
       cycleLength: len,
       phase: phaseFor(cycleDay, len, settings.periodLength),
       predicted,
-      fertile: cycleDay >= ov - 5 && cycleDay <= ov + 1,
+      fertile: cycleDay >= ov - FERTILE_WINDOW.before && cycleDay <= ov + FERTILE_WINDOW.after,
       ovulationDay: cycleDay === ov,
     };
   }
@@ -145,11 +149,11 @@ export function engine(state) {
       for (const s of among) {
         for (const p of PHASES) {
           const v = pct[s]?.[p];
-          if (v === null || v === undefined || totals[p] < 3) continue;
+          if (v === null || v === undefined || totals[p] < PATTERN_MIN_PHASE_DAYS) continue;
           if (!best || v > best.pct) best = { symptom: s, phase: p, pct: v };
         }
       }
-      return best && best.pct >= 20 ? best : null;
+      return best && best.pct >= PATTERN_MIN_PCT ? best : null;
     }
 
     return { loggedDays: totals, pct, totalLogged, strongest };
@@ -192,9 +196,11 @@ function seeded(seed) {
  * บันทึกตัวอย่าง 6 รอบย้อนหลังแบบสมจริง เพื่อให้เปิดหน้าสถิติดูได้ทันที
  * ความยาวรอบและความน่าจะเป็นของอาการยกมาจาก demoLogs() ในแอป Flutter
  */
+export const DEMO_CYCLE_LENGTHS = [27, 29, 28, 28, 27, 28];
+
 export function demoLogs(todayISO, periodLen = 5) {
   const rand = seeded(42);
-  const lens = [27, 29, 28, 28, 27, 28];
+  const lens = DEMO_CYCLE_LENGTHS;
   const out = {};
 
   let start = addDays(todayISO, -lens.reduce((a, b) => a + b, 0) + 3);

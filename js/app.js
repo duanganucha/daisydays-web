@@ -1,25 +1,33 @@
 /**
  * app.js — UI ทั้งหมด วานิลลา JS ไม่มี framework ไม่มี build step
  *
- * โครงหน้าตามแอป Flutter: 4 แท็บ (วันนี้ / ปฏิทิน / สถิติ / ฉัน)
+ * โครงหน้า: 4 แท็บ (วันนี้ / ปฏิทิน / สถิติ / ฉัน)
  * + ปุ่ม + กลางแถบที่เปิดหน้าบันทึก และหน้าเคล็ดลับซ้อนทับ
+ *
+ * ไฟล์นี้ต้องไม่มีข้อความที่ผู้ใช้อ่านฝังอยู่ — เรียกผ่าน t() / raw() เท่านั้น
+ * และต้องไม่คำนวณรอบเดือนเอง ให้เรียกจาก cycle.js
  */
 
 import {
   getState, getSettings, setSettings, subscribe,
   dayOf, putLog, isEmptyLog, loggedDayCount,
   exportJSON, importJSON, replaceAllLogs, eraseAll,
-  today, iso, addDays, daysBetween, parseISO,
+  today, addDays, daysBetween,
 } from './store.js';
 
-import { engine, monthInfo, demoLogs } from './cycle.js';
+import { engine, monthInfo, demoLogs, DEMO_CYCLE_LENGTHS } from './cycle.js';
 
 import {
-  PHASES, phaseLabels, phaseNames, phaseTips,
-  SYMPTOMS, symptomOf, ENERGY_LABELS, ADVICE,
-  MONTHS_TH, MONTHS_SHORT, WEEKDAYS_TH, DOW_SHORT,
-  tipsByPhase, asTip, tipOfDay,
+  PHASES, SYMPTOMS, symptomOf, SYMPTOMS_OFF_CHART,
+  ENERGY_MAX, LIMITS, PATTERN_MIN_DAYS,
 } from './data.js';
+
+import {
+  t, raw, setLocale, getLocale, localeList,
+  phaseName, phaseShort, phaseTip, symptomLabel, energyLabel, adviceFor,
+  tipsFor, tipOfDay, tipCount, dowHeaders,
+  formatFull, formatShort, formatMonthYear,
+} from './i18n.js';
 
 /* ───────────────────────────── ตัวช่วยสร้าง DOM ───────────────────────────── */
 
@@ -47,35 +55,17 @@ const $ = (s) => document.querySelector(s);
 /** หน่วงให้อนิเมชัน pop-in ไหลเป็นลำดับ */
 const stagger = (i, step = 40, base = 0) => `animation-delay:${base + i * step}ms`;
 
-/* ──────────────────────────── วันที่แบบไทย ──────────────────────────── */
-
-/** 'อังคาร 7 ตุลาคม' */
-function fullDate(dayISO) {
-  const d = parseISO(dayISO);
-  const dartWeekday = d.getDay() === 0 ? 7 : d.getDay();
-  return `${WEEKDAYS_TH[dartWeekday - 1]} ${d.getDate()} ${MONTHS_TH[d.getMonth()]}`;
-}
-
-/** '7 ต.ค.' */
-function shortDate(dayISO) {
-  const d = parseISO(dayISO);
-  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`;
-}
-
-/** 'ตุลาคม 2569' — ปีพุทธศักราชเหมือนแอป */
-const monthYear = (year, month) => `${MONTHS_TH[month]} ${year + 543}`;
-
 /* ──────────────────────────────── สถานะ UI ──────────────────────────────── */
 
 const now = new Date();
 
 const ui = {
-  tab: 'home',                 // home | calendar | stats | me
+  tab: 'home',        // home | calendar | stats | me
   month: now.getMonth(),
   year: now.getFullYear(),
-  overlay: null,               // null | { kind:'log', day } | { kind:'tips' }
-  openTip: null,               // คีย์เคล็ดลับที่กางอยู่
-  draft: null,                 // บันทึกที่กำลังแก้ในหน้าบันทึก (ยังไม่กดบันทึก)
+  overlay: null,      // null | { kind:'log', day } | { kind:'tips' }
+  openTip: null,      // คีย์เคล็ดลับที่กางอยู่
+  draft: null,        // บันทึกที่กำลังแก้ ยังไม่กดบันทึก
 };
 
 /* ───────────────────────── ส่วนประกอบที่ใช้ซ้ำ ───────────────────────── */
@@ -85,25 +75,21 @@ function card(attrs, ...children) {
   return el('section', { ...attrs, class: cls }, ...children);
 }
 
-function phaseChip(phase) {
-  return el('span', { class: 'phase-chip' }, phaseNames[phase]);
-}
-
 function cycleRing(day, length) {
   return el('div', { class: 'ring', style: `--p:${Math.min(1, day / length)}` },
     el('div', { class: 'ring-inner' },
-      el('div', { class: 'ring-cap' }, 'วันที่'),
+      el('div', { class: 'ring-cap' }, t('ringCap')),
       el('div', { class: 'ring-day' }, day),
-      el('div', { class: 'ring-sub' }, `ของรอบ ${length} วัน`),
+      el('div', { class: 'ring-sub' }, t('ringSub', { n: length })),
     ),
   );
 }
 
-function emptyFairyCard(text, fairy = '🧚‍♀️') {
+function fairyCard(text, fairy = '🧚‍♀️') {
   return card({},
     el('div', { class: 'empty-row' },
       el('span', { class: 'empty-fairy' }, fairy),
-      el('p', { class: 'grow' }, text),
+      el('p', { class: 'grow', style: 'white-space:pre-line' }, text),
     ),
   );
 }
@@ -120,58 +106,57 @@ function viewHome() {
   const log = dayOf(day);
 
   const hour = new Date().getHours();
-  const greet = hour < 12 ? 'สวัสดีตอนเช้า' : hour < 17 ? 'สวัสดีตอนบ่าย' : 'สวัสดีตอนเย็น';
+  const greet = hour < 12 ? t('greetMorning') : hour < 17 ? t('greetAfternoon') : t('greetEvening');
 
   const hero = el('div', { class: 'hero' },
     el('div', { class: 'hero-top' },
-      el('div', { class: 'hero-greet' }, `${greet} ${set.name} 🌼`.replace('  ', ' ')),
-      el('div', { class: 'hero-date' }, fullDate(day)),
+      el('div', { class: 'hero-greet' }, [greet, set.name].filter(Boolean).join(' ') + ' 🌼'),
+      el('div', { class: 'hero-date' }, formatFull(day)),
     ),
-    el('div', { class: 'hero-bubble' },
-      st ? phaseTips[st.phase] : 'เริ่มบันทึกวันมีประจำเดือน แล้วฉันจะช่วยคำนวณรอบให้นะ'),
+    el('div', { class: 'hero-bubble' }, st ? phaseTip(st.phase) : t('heroNoData')),
     el('div', { class: 'hero-fairy' }, '🧚‍♀️'),
   );
 
-  // การ์ดสถานะรอบ
   const statusCard = st === null
-    ? emptyFairyCard('ยังไม่มีข้อมูลรอบเดือน\nกด + แล้วเปิด "ประจำเดือนมา" เพื่อเริ่ม', '🧚‍♀️')
+    ? fairyCard(t('statusEmpty'))
     : card({},
       el('div', { class: 'row' },
         cycleRing(st.cycleDay, st.cycleLength),
         el('div', { class: 'grow' },
-          phaseChip(st.phase),
-          el('div', { class: 'next-label' }, 'ประจำเดือนรอบหน้า'),
-          next && el('div', { class: 'next-days' }, `อีก ${daysBetween(day, next)} วัน`),
-          next && el('div', { class: 'next-date' }, `ประมาณ ${shortDate(next)}`),
+          el('span', { class: 'phase-chip' }, phaseName(st.phase)),
+          el('div', { class: 'next-label' }, t('nextPeriod')),
+          next && el('div', { class: 'next-days' }, t('inDays', { n: daysBetween(day, next) })),
+          next && el('div', { class: 'next-date' }, t('aroundDate', { date: formatShort(next) })),
         ),
       ),
     );
 
   // สรุปบันทึกวันนี้
   const minis = [];
-  if (log.period) minis.push({ icon: '📅', label: 'ประจำเดือน' });
+  if (log.period) minis.push({ icon: '📅', label: t('miniPeriod') });
   for (const k of log.symptoms) {
     const s = symptomOf(k);
-    if (s) minis.push({ icon: s.icon, label: s.label });
+    if (s) minis.push({ icon: s.icon, label: symptomLabel(k) });
   }
-  if (log.energy > 0) minis.push({ icon: '⚡', label: `พลังงาน ${log.energy}/5` });
+  if (log.energy > 0) {
+    minis.push({ icon: '⚡', label: t('miniEnergy', { n: log.energy, max: ENERGY_MAX }) });
+  }
 
   const todayBlock = isEmptyLog(log)
-    ? card({}, el('p', { class: 'muted' }, 'วันนี้ยังไม่ได้บันทึก กด + เพื่อจดว่ารู้สึกยังไง'))
+    ? card({}, el('p', { class: 'muted' }, t('nothingLoggedToday')))
     : el('div', { class: 'minis' },
       ...minis.map((m, i) => el('span', { class: 'mini', style: stagger(i, 90, 300) },
         el('span', { class: 'mini-icon' }, m.icon), m.label)),
     );
 
-  // การ์ดเคล็ดลับวันนี้
   const tip = tipOfDay(st?.phase ?? null, day);
   const tipCard = el('button', { class: 'card tip-card', onclick: () => openOverlay({ kind: 'tips' }) },
     el('div', { class: 'row' },
       el('span', { class: 'tip-drop' }, '💧'),
       el('div', { class: 'grow' },
-        el('div', { class: 'bold' }, 'เคล็ดลับวันนี้'),
+        el('div', { class: 'bold' }, t('tipOfDay')),
         el('div', { class: 'muted' }, `${tip.title} · ${tip.summary}`),
-        el('div', { class: 'tip-more' }, 'ดูเคล็ดลับทั้งหมด ›'),
+        el('div', { class: 'tip-more' }, t('seeAllTips')),
       ),
       el('span', { class: 'chevron' }, '›'),
     ),
@@ -182,11 +167,11 @@ function viewHome() {
     el('div', { class: 'content' },
       statusCard,
       el('div', { class: 'section-head' },
-        el('h2', {}, 'บันทึกวันนี้'),
+        el('h2', {}, t('logToday')),
         el('button', {
           class: 'text-btn',
           onclick: () => openOverlay({ kind: 'log', day }),
-        }, isEmptyLog(log) ? 'เริ่มบันทึก' : 'แก้ไข'),
+        }, isEmptyLog(log) ? t('startLogging') : t('edit')),
       ),
       todayBlock,
       el('div', { style: 'height:14px' }),
@@ -198,13 +183,12 @@ function viewHome() {
 /* ═══════════════════════════════ ปฏิทิน ═══════════════════════════════ */
 
 function viewCalendar() {
-  const state = getState();
-  const cyc = engine(state);
+  const cyc = engine(getState());
   const todayISO = today();
   const { lead, days, dayISO } = monthInfo(ui.year, ui.month);
 
   const grid = el('div', { class: 'cal-grid' },
-    ...DOW_SHORT.map((h) => el('div', { class: 'cal-dow' }, h)),
+    ...dowHeaders().map((h) => el('div', { class: 'cal-dow' }, h)),
     ...Array.from({ length: lead }, () => el('span', { class: 'cal-cell blank' })),
   );
 
@@ -225,7 +209,7 @@ function viewCalendar() {
       class: cls.join(' '),
       dataset: { day },
       style: stagger(lead + d, 8),
-      'aria-label': fullDate(day),
+      'aria-label': formatFull(day),
       onclick: () => openOverlay({ kind: 'log', day }),
     },
       d,
@@ -234,31 +218,30 @@ function viewCalendar() {
   }
 
   const legend = el('div', { class: 'legend' },
-    legendItem('var(--pink)', 'ประจำเดือน'),
-    legendItem('var(--pink2)', 'คาดการณ์'),
-    legendItem('var(--mint2)', 'ช่วงเจริญพันธุ์'),
-    legendItem('var(--mint)', 'ไข่ตก'),
-    legendItem('var(--lav)', 'มีบันทึก', true),
+    legendItem('var(--pink)', t('legendPeriod')),
+    legendItem('var(--pink2)', t('legendPredicted')),
+    legendItem('var(--mint2)', t('legendFertile')),
+    legendItem('var(--mint)', t('legendOvulation')),
+    legendItem('var(--lav)', t('legendLogged'), true),
   );
 
   const st = cyc.statusOn(todayISO);
-  const says = !st
-    ? 'กดวันไหนก็ได้เพื่อเริ่มบันทึก เมื่อมี 2 รอบขึ้นไปฉันจะคาดการณ์ให้แม่นขึ้น'
-    : st.phase === 'menstrual' ? 'ช่วงนี้พักเยอะ ๆ นะ ประคบอุ่นช่วยได้'
-      : st.phase === 'ovulation' ? 'ช่วงไข่ตก ร่างกายกำลังพีค ดื่มน้ำให้ครบ'
-        : st.phase === 'pms' ? 'ใกล้รอบใหม่แล้ว ใจดีกับตัวเองหน่อยนะ'
-          : `ตอนนี้วันที่ ${st.cycleDay} ของรอบ ${st.cycleLength} วัน`;
+  const says = !st ? t('calSaysNone')
+    : st.phase === 'menstrual' ? t('calSaysMenstrual')
+      : st.phase === 'ovulation' ? t('calSaysOvulation')
+        : st.phase === 'pms' ? t('calSaysPms')
+          : t('calSaysDefault', { day: st.cycleDay, len: st.cycleLength });
 
   return el('div', { class: 'content' },
-    el('div', { class: 'page-kicker' }, 'ปฏิทินรอบเดือน'),
+    el('div', { class: 'page-kicker' }, t('calendarKicker')),
     el('div', { class: 'cal-head' },
-      el('div', { class: 'page-title grow' }, monthYear(ui.year, ui.month)),
-      el('button', { class: 'icon-btn', 'aria-label': 'เดือนก่อน', onclick: () => shiftMonth(-1) }, '‹'),
-      el('button', { class: 'icon-btn', 'aria-label': 'เดือนถัดไป', onclick: () => shiftMonth(1) }, '›'),
+      el('div', { class: 'page-title grow' }, formatMonthYear(ui.year, ui.month)),
+      el('button', { class: 'icon-btn', 'aria-label': t('prevMonth'), onclick: () => shiftMonth(-1) }, '‹'),
+      el('button', { class: 'icon-btn', 'aria-label': t('nextMonth'), onclick: () => shiftMonth(1) }, '›'),
     ),
     card({}, grid, legend),
     el('div', { style: 'height:14px' }),
-    emptyFairyCard(says),
+    fairyCard(says),
   );
 }
 
@@ -280,15 +263,13 @@ function shiftMonth(delta) {
 /* ═══════════════════════════════ สถิติ ═══════════════════════════════ */
 
 function viewStats() {
-  const state = getState();
-  const cyc = engine(state);
+  const cyc = engine(getState());
   const todayISO = today();
 
-  // แถวของตาราง: ตัดดื่มน้ำ/ออกกำลังกายออก เหมือนแอป
-  const rows = SYMPTOMS.filter((s) => s.key !== 'water' && s.key !== 'exercise');
+  const rows = SYMPTOMS.filter((s) => !SYMPTOMS_OFF_CHART.includes(s.key));
   const hm = cyc.heatmap(rows.map((s) => s.key), todayISO);
   const best = hm.strongest(SYMPTOMS.filter((s) => s.negative).map((s) => s.key));
-  const enough = hm.totalLogged >= 10;
+  const enough = hm.totalLogged >= PATTERN_MIN_DAYS;
 
   const lens = cyc.lengths.slice(-6);
   const lo = lens.length ? Math.min(...lens) : 0;
@@ -297,8 +278,7 @@ function viewStats() {
   const blocks = [];
 
   if (!enough) {
-    blocks.push(emptyFairyCard(
-      'บันทึกอาการให้ครบอย่างน้อย 10 วัน (ยิ่งครบ 2–3 รอบยิ่งแม่น) แล้ว Daisy Days จะจับ pattern ให้เอง'));
+    blocks.push(fairyCard(t('statsNeedMore', { n: PATTERN_MIN_DAYS })));
   } else {
     blocks.push(card({ style: 'padding:12px 10px' }, heatTable(rows, hm, best)));
 
@@ -307,25 +287,27 @@ function viewStats() {
         el('div', { class: 'row' },
           el('span', { class: 'empty-fairy' }, '🧚‍♀️'),
           el('div', { class: 'grow' },
-            'เจอ pattern แล้ว! ',
-            el('span', { class: 'pink' },
-              `${symptomOf(best.symptom).label} บ่อยสุด${phaseNames[best.phase]} (${best.pct}%)`),
-            el('div', {}, ADVICE[best.symptom] || 'สังเกตตัวเองต่อไปนะ'),
+            t('patternFound'),
+            el('span', { class: 'pink' }, t('patternDetail', {
+              symptom: symptomLabel(best.symptom),
+              phase: phaseName(best.phase),
+              pct: best.pct,
+            })),
+            el('div', {}, adviceFor(best.symptom)),
           ),
         ),
       ));
     }
   }
 
-  // การ์ดกราฟความยาวรอบ
   blocks.push(card({},
     el('div', { class: 'row' },
-      el('div', { class: 'bold grow' }, 'ความยาวรอบเดือน'),
-      el('div', { class: 'muted' }, `เฉลี่ย ${cyc.avgLength} วัน`),
+      el('div', { class: 'bold grow' }, t('cycleLengthTitle')),
+      el('div', { class: 'muted' }, t('averageDays', { n: cyc.avgLength })),
     ),
     el('div', { style: 'height:12px' }),
     lens.length === 0
-      ? el('p', { class: 'muted' }, 'ต้องมีอย่างน้อย 2 รอบ ถึงจะแสดงกราฟได้')
+      ? el('p', { class: 'muted' }, t('needTwoCycles'))
       : el('div', { class: 'len-chart' },
         ...lens.map((l) => {
           const h = 0.45 + 0.55 * (hi - lo === 0 ? 1 : (l - lo) / (hi - lo));
@@ -339,8 +321,8 @@ function viewStats() {
 
   return el('div', { class: 'content' },
     el('div', { class: 'page-kicker' },
-      `จากบันทึก ${hm.totalLogged} วัน · ${cyc.starts.length} รอบเดือน`),
-    el('div', { class: 'page-title' }, 'อาการตามช่วงรอบเดือน'),
+      t('statsKicker', { days: hm.totalLogged, cycles: cyc.starts.length })),
+    el('div', { class: 'page-title' }, t('statsTitle')),
     el('div', { style: 'height:12px' }),
     el('div', { class: 'stack' }, ...blocks),
   );
@@ -349,13 +331,16 @@ function viewStats() {
 /** ตารางความถี่ อาการ × ช่วงรอบ */
 function heatTable(rows, hm, best) {
   const head = el('tr', {}, el('th', {}),
-    ...PHASES.map((p) => el('th', { class: best?.phase === p ? 'hl' : '' }, phaseLabels[p])));
+    ...PHASES.map((p) => el('th', {
+      class: best?.phase === p ? 'hl' : '',
+      scope: 'col',
+    }, phaseShort(p))));
 
   const body = rows.map((s, ri) => el('tr', {},
-    el('td', {},
+    el('th', { scope: 'row', style: 'font-weight:600' },
       el('div', { class: 'heat-name' },
         el('span', { class: 'ico' }, s.icon),
-        el('span', {}, s.label),
+        el('span', {}, symptomLabel(s.key)),
       ),
     ),
     ...PHASES.map((p, ci) => {
@@ -366,11 +351,13 @@ function heatTable(rows, hm, best) {
       const cls = ['heat-cell'];
       if ((v ?? 0) > 28) cls.push('strong');
       if (hl) cls.push('hl');
+      const label = v === null ? '–' : `${v}%`;
       return el('td', {},
         el('div', {
           class: cls.join(' '),
           style: `background:rgba(242,122,166,${a});${stagger(ci * 3 + ri, 35, 200)}`,
-        }, v === null ? '–' : `${v}%`),
+          'aria-label': `${symptomLabel(s.key)} · ${phaseName(p)} · ${label}`,
+        }, label),
       );
     }),
   ));
@@ -384,18 +371,21 @@ function viewMe() {
   const set = getSettings();
   const cyc = engine(getState());
 
-  const stepper = (label, key, min, max, unit = 'วัน') => el('div', { class: 'stepper' },
-    el('span', { class: 'label' }, label),
-    el('button', {
-      class: 'step-btn', 'aria-label': 'ลด', disabled: set[key] <= min,
-      onclick: () => { setSettings({ [key]: set[key] - 1 }); render(); },
-    }, '−'),
-    el('span', { class: 'value' }, `${set[key]} ${unit}`),
-    el('button', {
-      class: 'step-btn', 'aria-label': 'เพิ่ม', disabled: set[key] >= max,
-      onclick: () => { setSettings({ [key]: set[key] + 1 }); render(); },
-    }, '+'),
-  );
+  const stepper = (label, key) => {
+    const { min, max } = LIMITS[key];
+    return el('div', { class: 'stepper' },
+      el('span', { class: 'label' }, label),
+      el('button', {
+        class: 'step-btn', 'aria-label': t('decrease'), disabled: set[key] <= min,
+        onclick: () => { setSettings({ [key]: set[key] - 1 }); render(); },
+      }, '−'),
+      el('span', { class: 'value' }, t('unitDays', { n: set[key] })),
+      el('button', {
+        class: 'step-btn', 'aria-label': t('increase'), disabled: set[key] >= max,
+        onclick: () => { setSettings({ [key]: set[key] + 1 }); render(); },
+      }, '+'),
+    );
+  };
 
   const fileInput = el('input', {
     type: 'file', accept: 'application/json,.json', class: 'hidden',
@@ -404,9 +394,10 @@ function viewMe() {
       if (!file) return;
       try {
         importJSON(await file.text());
-        toast('นำเข้าข้อมูลเรียบร้อย 🌼');
+        applyLocale();
+        toast(t('importDone'));
       } catch (err) {
-        toast(`นำเข้าไม่สำเร็จ: ${err.message}`);
+        toast(t('importFailed', { msg: err.message }));
       }
       e.target.value = '';
       render();
@@ -417,70 +408,77 @@ function viewMe() {
     el('div', { class: 'me-head' },
       el('span', { class: 'me-logo' }, '🌼'),
       el('div', { class: 'grow' },
-        el('div', { class: 'page-title' }, set.name || 'ฉัน'),
+        el('div', { class: 'page-title' }, set.name || t('meTitle')),
         el('div', { class: 'muted' },
-          `บันทึกแล้ว ${loggedDayCount()} วัน · รอบเฉลี่ย ${cyc.avgLength} วัน`),
+          t('meSummary', { days: loggedDayCount(), avg: cyc.avgLength })),
       ),
     ),
 
-    // ชื่อเล่น
     card({},
-      el('div', { class: 'bold' }, 'ชื่อที่อยากให้เรียก'),
+      el('div', { class: 'bold' }, t('nameLabel')),
       el('input', {
         class: 'note-input', type: 'text', value: set.name, maxlength: 20,
-        placeholder: 'เช่น ออม',
+        placeholder: t('namePlaceholder'),
         onchange: (e) => { setSettings({ name: e.target.value.trim() }); render(); },
       }),
     ),
 
-    // ค่าตั้งต้นของรอบ
-    card({ style: 'padding:6px 16px' },
-      stepper('รอบเดือนตั้งต้น', 'cycleLength', 21, 40),
-      el('hr', { class: 'divider' }),
-      stepper('มีประจำเดือน', 'periodLength', 2, 10),
+    // ตัวเลือกภาษา
+    card({},
+      el('div', { class: 'bold' }, t('language')),
+      el('div', { class: 'chips', style: 'margin-top:8px' },
+        ...localeList().map(({ code, name }) => el('button', {
+          class: `chip${getLocale() === code ? ' on' : ''}`,
+          onclick: () => {
+            setSettings({ locale: code });
+            setLocale(code);
+            render();
+          },
+        }, name)),
+      ),
     ),
-    el('p', { class: 'muted', style: 'padding:0 4px' },
-      'เมื่อบันทึกครบ 2 รอบขึ้นไป แอปจะใช้ค่าเฉลี่ยจริงแทนค่าตั้งต้น'),
 
-    // เคล็ดลับ
+    card({ style: 'padding:6px 16px' },
+      stepper(t('defaultCycle'), 'cycleLength'),
+      el('hr', { class: 'divider' }),
+      stepper(t('defaultPeriod'), 'periodLength'),
+    ),
+    el('p', { class: 'muted', style: 'padding:0 4px' }, t('defaultsNote')),
+
     card({ style: 'padding:8px' },
       el('button', { class: 'tile', onclick: () => openOverlay({ kind: 'tips' }) },
         el('span', { class: 't-icon' }, '📖'),
         el('div', { class: 'grow' },
-          el('div', { class: 't-title' }, 'เคล็ดลับดูแลตัวเอง'),
-          el('div', { class: 't-sub' },
-            `${PHASES.reduce((n, p) => n + tipsByPhase[p].length, 0)} เรื่องแยกตามช่วงรอบเดือน`),
+          el('div', { class: 't-title' }, t('tipsTitle')),
+          el('div', { class: 't-sub' }, t('tipsSub', { n: tipCount(PHASES) })),
         ),
         el('span', { class: 'chevron' }, '›'),
       ),
     ),
 
-    // สำรองข้อมูล
     card({ style: 'padding:8px' },
       el('button', { class: 'tile', onclick: doExport },
         el('span', { class: 't-icon' }, '⬇️'),
         el('div', { class: 'grow' },
-          el('div', { class: 't-title' }, 'ส่งออกไฟล์สำรอง'),
-          el('div', { class: 't-sub' }, 'เก็บไว้เองเป็นไฟล์ JSON'),
+          el('div', { class: 't-title' }, t('exportTitle')),
+          el('div', { class: 't-sub' }, t('exportSub')),
         ),
       ),
       el('hr', { class: 'divider' }),
       el('button', { class: 'tile', onclick: () => fileInput.click() },
         el('span', { class: 't-icon' }, '⬆️'),
         el('div', { class: 'grow' },
-          el('div', { class: 't-title' }, 'นำเข้าไฟล์สำรอง'),
-          el('div', { class: 't-sub' }, 'กู้ข้อมูลจากไฟล์ที่ส่งออกไว้'),
+          el('div', { class: 't-title' }, t('importTitle')),
+          el('div', { class: 't-sub' }, t('importSub')),
         ),
       ),
       fileInput,
     ),
 
-    // ความเป็นส่วนตัว
     card({},
       el('div', { class: 'row' },
-        el('span', { style: 'font-size:22px;color:var(--mint-ink)' }, '🔒'),
-        el('p', { class: 'grow', style: 'font-size:13px' },
-          'ข้อมูลทั้งหมดเก็บในเครื่องนี้เท่านั้น ไม่มีการส่งขึ้นเซิร์ฟเวอร์'),
+        el('span', { style: 'font-size:22px' }, '🔒'),
+        el('p', { class: 'grow', style: 'font-size:13px' }, t('privacyNote')),
       ),
     ),
 
@@ -488,25 +486,33 @@ function viewMe() {
     el('button', {
       class: 'outline-btn',
       onclick: () => {
-        if (!confirm('ใส่ข้อมูลตัวอย่าง?\nข้อมูลที่บันทึกไว้จะถูกแทนที่ด้วยข้อมูลตัวอย่าง')) return;
+        if (!confirm(t('demoConfirm'))) return;
         replaceAllLogs(demoLogs(today(), getSettings().periodLength));
         ui.tab = 'stats';
-        toast('ใส่ข้อมูลตัวอย่าง 6 รอบแล้ว ✨');
+        toast(t('demoDone', { n: DEMO_CYCLE_LENGTHS.length }));
         render();
       },
-    }, '✨', 'ใส่ข้อมูลตัวอย่าง 6 รอบเดือน'),
+    }, '✨', t('demoBtn', { n: DEMO_CYCLE_LENGTHS.length })),
 
     el('div', { style: 'height:8px' }),
     el('button', {
       class: 'text-btn danger', style: 'width:100%',
       onclick: () => {
-        if (!confirm('ลบข้อมูลทั้งหมด?\nบันทึกและการตั้งค่าทั้งหมดในเครื่องนี้จะหายไป')) return;
+        if (!confirm(t('eraseConfirm'))) return;
         eraseAll();
+        applyLocale();
         ui.tab = 'home';
-        toast('ลบข้อมูลทั้งหมดแล้ว');
+        toast(t('eraseDone'));
         render();
       },
-    }, '🗑 ลบข้อมูลทั้งหมด'),
+    }, '🗑 ' + t('eraseBtn')),
+
+    el('p', { style: 'text-align:center;margin-top:14px' },
+      el('a', {
+        href: 'https://github.com/duanganucha/daisydays-web',
+        target: '_blank', rel: 'noopener',
+      }, t('sourceLink')),
+    ),
   );
 }
 
@@ -518,7 +524,7 @@ function doExport() {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
-  toast('ส่งออกไฟล์สำรองแล้ว');
+  toast(t('exportDone'));
 }
 
 /* ═══════════════════════════ หน้าบันทึก (ซ้อนทับ) ═══════════════════════════ */
@@ -530,50 +536,59 @@ function viewLog(day) {
   const periodCard = card({ class: draft.period ? 'grad-pink' : '', style: 'padding:14px 16px' },
     el('div', { class: `switch-row ${draft.period ? 'on' : ''}` },
       el('span', { class: 'sw-icon' }, '📅'),
-      el('span', { class: 'grow bold' }, 'ประจำเดือนมา'),
+      el('span', { class: 'grow bold' }, t('periodOn')),
       el('button', {
         class: 'switch', role: 'switch', 'aria-checked': String(draft.period),
-        'aria-label': 'ประจำเดือนมา',
+        'aria-label': t('periodOn'),
         onclick: () => { draft.period = !draft.period; render(); },
       }),
     ),
   );
 
   const symGrid = el('div', { class: 'sym-grid' },
-    ...SYMPTOMS.map((s, i) => el('button', {
-      class: `sym-chip${draft.symptoms.includes(s.key) ? ' on' : ''}`,
-      style: stagger(i, 45, 120),
-      onclick: () => {
-        draft.symptoms = draft.symptoms.includes(s.key)
-          ? draft.symptoms.filter((k) => k !== s.key)
-          : [...draft.symptoms, s.key];
-        render();
+    ...SYMPTOMS.map((s, i) => {
+      const on = draft.symptoms.includes(s.key);
+      return el('button', {
+        class: `sym-chip${on ? ' on' : ''}`,
+        style: stagger(i, 45, 120),
+        'aria-pressed': String(on),
+        onclick: () => {
+          draft.symptoms = on
+            ? draft.symptoms.filter((k) => k !== s.key)
+            : [...draft.symptoms, s.key];
+          render();
+        },
       },
-    },
-      el('span', { class: 'sym-icon' }, s.icon),
-      el('span', { class: 'sym-label' }, s.label),
-      el('span', { class: 'sym-check' }, '✓'),
-    )),
+        el('span', { class: 'sym-icon' }, s.icon),
+        el('span', { class: 'sym-label' }, symptomLabel(s.key)),
+        el('span', { class: 'sym-check' }, '✓'),
+      );
+    }),
   );
 
   const energyCard = card({},
     el('div', { class: 'row' },
-      el('div', { class: 'bold grow' }, 'ระดับพลังงาน'),
-      el('div', { class: 'muted' }, ENERGY_LABELS[draft.energy]),
+      el('div', { class: 'bold grow' }, t('energyLevel')),
+      el('div', { class: 'muted' }, energyLabel(draft.energy)),
     ),
     el('div', { class: 'energy-bars' },
-      ...[1, 2, 3, 4, 5].map((i) => el('button', {
-        class: `energy-bar${i <= draft.energy ? ' on' : ''}`,
-        'aria-label': `พลังงานระดับ ${i}`,
-        onclick: () => { draft.energy = draft.energy === i ? 0 : i; render(); },
-      })),
+      ...Array.from({ length: ENERGY_MAX }, (_, idx) => {
+        const i = idx + 1;
+        return el('button', {
+          class: `energy-bar${i <= draft.energy ? ' on' : ''}`,
+          'aria-label': t('energyAria', { n: i }),
+          'aria-pressed': String(i <= draft.energy),
+          onclick: () => { draft.energy = draft.energy === i ? 0 : i; render(); },
+        });
+      }),
     ),
   );
 
   const noteCard = card({ style: 'padding:6px 16px' },
     el('textarea', {
       class: 'note-input', rows: 2, value: draft.note,
-      placeholder: '📝 จดโน้ตเพิ่ม… เช่น "ปวดท้องนิดหน่อยช่วงบ่าย"',
+      placeholder: t('notePlaceholder'),
+      'aria-label': t('notePlaceholder'),
       oninput: (e) => { draft.note = e.target.value; },
     }),
   );
@@ -581,10 +596,10 @@ function viewLog(day) {
   return el('div', { class: 'overlay' },
     el('div', { class: 'overlay-inner' },
       el('div', { class: 'overlay-bar' },
-        el('button', { class: 'icon-btn', 'aria-label': 'ปิด', onclick: closeOverlay }, '✕'),
-        el('div', { class: 'ob-title' }, fullDate(day)),
+        el('button', { class: 'icon-btn', 'aria-label': t('close'), onclick: closeOverlay }, '✕'),
+        el('div', { class: 'ob-title' }, formatFull(day)),
       ),
-      el('div', { class: 'page-title' }, isToday ? 'วันนี้รู้สึกยังไง?' : 'วันนั้นรู้สึกยังไง?'),
+      el('div', { class: 'page-title' }, isToday ? t('howToday') : t('howThatDay')),
       el('div', { style: 'height:12px' }),
       periodCard,
       el('div', { style: 'height:14px' }),
@@ -593,23 +608,23 @@ function viewLog(day) {
       energyCard,
       el('div', { style: 'height:14px' }),
       noteCard,
-      el('button', { class: 'filled-btn', onclick: () => saveLog(day) }, 'บันทึก'),
+      el('button', { class: 'filled-btn', onclick: () => saveLog(day) }, t('save')),
     ),
   );
 }
 
 async function saveLog(day) {
+  const wasPeriod = ui.draft.period;
   putLog(day, ui.draft);
-  const fairy = ui.draft.period ? '🧚‍♀️💗' : '🧚‍♀️';
   closeOverlay();
-  await celebrate(fairy, 'บันทึกแล้ว 🌼');
+  await celebrate(wasPeriod ? '🧚‍♀️💗' : '🧚‍♀️', t('saved'));
   render();
 }
 
-/** ป๊อปอัปฉลองสั้น ๆ หลังกดบันทึก (แทน celebrate() ของแอป Flutter) */
+/** ป๊อปอัปฉลองสั้น ๆ หลังกดบันทึก */
 function celebrate(fairy, text) {
   return new Promise((resolve) => {
-    const node = el('div', { class: 'celebrate' },
+    const node = el('div', { class: 'celebrate', role: 'status' },
       el('div', { class: 'celebrate-box' },
         el('div', { class: 'celebrate-fairy' }, fairy),
         el('div', { class: 'celebrate-text' }, text),
@@ -626,16 +641,16 @@ function viewTips() {
   const blocks = [];
 
   for (const phase of PHASES) {
-    blocks.push(el('div', { class: 'phase-head' }, phaseNames[phase]));
+    blocks.push(el('div', { class: 'phase-head' }, phaseName(phase)));
 
-    for (const [i, raw] of tipsByPhase[phase].entries()) {
-      const tip = asTip(raw);
+    tipsFor(phase).forEach((tip, i) => {
       const key = `${phase}-${i}`;
       const open = ui.openTip === key;
 
       blocks.push(el('button', {
         class: 'card tip-item',
         style: `margin-top:${i ? 10 : 0}px`,
+        'aria-expanded': String(open),
         onclick: () => { ui.openTip = open ? null : key; render(); },
       },
         el('div', { class: 'row' },
@@ -649,21 +664,19 @@ function viewTips() {
         open && el('div', {},
           el('hr', { class: 'divider', style: 'margin:10px 0' }),
           el('p', { class: 'tip-detail' }, tip.detail),
-          el('div', { class: 'tip-source' }, `ที่มา: ${tip.source}`),
+          el('div', { class: 'tip-source' }, t('tipSource', { source: tip.source })),
         ),
       ));
-    }
+    });
   }
 
   return el('div', { class: 'overlay' },
     el('div', { class: 'overlay-inner' },
       el('div', { class: 'overlay-bar' },
-        el('button', { class: 'icon-btn', 'aria-label': 'ปิด', onclick: closeOverlay }, '✕'),
-        el('div', { class: 'ob-title bold', style: 'color:var(--ink);font-weight:800' },
-          'เคล็ดลับดูแลตัวเอง'),
+        el('button', { class: 'icon-btn', 'aria-label': t('close'), onclick: closeOverlay }, '✕'),
+        el('div', { class: 'ob-title', style: 'color:var(--ink);font-weight:800' }, t('tipsTitle')),
       ),
-      el('p', { class: 'muted' },
-        'ข้อมูลทั่วไปเพื่อการดูแลตัวเอง ไม่ใช่คำแนะนำทางการแพทย์ หากมีข้อกังวลควรปรึกษาแพทย์'),
+      el('p', { class: 'muted' }, t('tipsDisclaimer')),
       ...blocks,
     ),
   );
@@ -673,25 +686,26 @@ function viewTips() {
 
 function tabbar() {
   const tabs = [
-    ['home', '🌼', 'วันนี้'],
-    ['calendar', '📅', 'ปฏิทิน'],
+    ['home', '🌼', t('tabHome')],
+    ['calendar', '📅', t('tabCalendar')],
     null, // ปุ่ม + ตรงกลาง
-    ['stats', '📊', 'สถิติ'],
-    ['me', '💗', 'ฉัน'],
+    ['stats', '📊', t('tabStats')],
+    ['me', '💗', t('tabMe')],
   ];
 
   return el('nav', { class: 'tabbar' },
-    ...tabs.map((t) => t === null
+    ...tabs.map((tab) => tab === null
       ? el('button', {
-        class: 'fab', 'aria-label': 'บันทึกวันนี้',
+        class: 'fab', 'aria-label': t('fabLabel'),
         onclick: () => openOverlay({ kind: 'log', day: today() }),
       }, '+')
       : el('button', {
-        class: `tab${ui.tab === t[0] ? ' on' : ''}`,
-        onclick: () => { ui.tab = t[0]; render(); },
+        class: `tab${ui.tab === tab[0] ? ' on' : ''}`,
+        'aria-current': ui.tab === tab[0] ? 'page' : null,
+        onclick: () => { ui.tab = tab[0]; render(); },
       },
-        el('span', { class: 't-ico' }, t[1]),
-        el('span', {}, t[2]),
+        el('span', { class: 't-ico' }, tab[1]),
+        el('span', {}, tab[2]),
       )),
   );
 }
@@ -716,8 +730,8 @@ function closeOverlay() {
 /* ═══════════════════════════════ Toast ═══════════════════════════════ */
 
 function toast(msg) {
-  document.querySelectorAll('.toast').forEach((t) => t.remove());
-  const node = el('div', { class: 'toast' }, msg);
+  document.querySelectorAll('.toast').forEach((n) => n.remove());
+  const node = el('div', { class: 'toast', role: 'status', 'aria-live': 'polite' }, msg);
   document.body.append(node);
   requestAnimationFrame(() => node.classList.add('show'));
   setTimeout(() => {
@@ -750,7 +764,18 @@ function render() {
 
 /* ═══════════════════════════════ เริ่มทำงาน ═══════════════════════════════ */
 
+/** ตั้งภาษาตามค่าที่บันทึกไว้ ถ้ายังไม่เคยเลือกให้เดาจากภาษาเบราว์เซอร์ */
+function applyLocale() {
+  const saved = getSettings().locale;
+  const codes = localeList().map((l) => l.code);
+  const guess = (navigator.languages || [navigator.language || ''])
+    .map((l) => String(l).slice(0, 2).toLowerCase())
+    .find((c) => codes.includes(c));
+  setLocale(codes.includes(saved) ? saved : (guess || 'th'));
+}
+
 function boot() {
+  applyLocale();
   render();
 
   document.addEventListener('keydown', (e) => {

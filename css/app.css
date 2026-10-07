@@ -335,6 +335,30 @@ a { color: var(--pink); }
 .swatch { width: 12px; height: 12px; border-radius: 50%; }
 .swatch.dot { width: 7px; height: 7px; }
 
+/* ชิปเลือกตัวเลือก (ใช้กับตัวเลือกภาษา) */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.chip {
+  border: 1.4px solid var(--divider);
+  background: #fff;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: .86rem;
+  padding: 7px 14px;
+  border-radius: 99px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+
+.chip:hover { background: var(--lav2); }
+
+.chip.on {
+  background: var(--pink);
+  border-color: var(--pink);
+  color: #fff;
+  font-weight: 600;
+}
+
 /* ─────────────────────── หน้าบันทึก: อาการแบบตาราง 3 คอลัมน์ ─────────────────────── */
 
 .sym-grid {

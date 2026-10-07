@@ -1,0 +1,30 @@
+{
+  "name": "daisydays-web",
+  "version": "1.0.0",
+  "description": "Offline-first period & symptom tracker. Vanilla HTML/CSS/JS, no build step, no server.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "homepage": "https://duanganucha.github.io/daisydays-web/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/duanganucha/daisydays-web.git"
+  },
+  "keywords": [
+    "period-tracker",
+    "menstrual-cycle",
+    "offline-first",
+    "privacy",
+    "pwa",
+    "vanilla-javascript"
+  ],
+  "comment": "ไฟล์นี้มีไว้เพื่อ `npm test` และ `npm start` เท่านั้น แอปไม่มี dependency และไม่มี build step — ไม่ต้อง npm install",
+  "scripts": {
+    "test": "node --test 'tests/*.test.js'",
+    "start": "python3 -m http.server 8000",
+    "serve": "python3 -m http.server 8000"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
