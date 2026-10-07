@@ -116,18 +116,38 @@ daisydays-web/
 
 ---
 
-## ร่วมพัฒนา
+## ร่วมพัฒนา — กำลังหาคนช่วย 🙋
 
-ยินดีรับ PR และ issue ทุกแบบ — ดู [CONTRIBUTING.md](CONTRIBUTING.md)
+**มี [35 issue เปิดอยู่](https://github.com/duanganucha/daisydays-web/issues) และ [20 อันเป็น `good first issue`](https://github.com/duanganucha/daisydays-web/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)**
+ทุกใบเขียนไว้ครบว่าต้องแก้ไฟล์ไหน ทำอะไร และเสร็จแล้วต้องได้อะไร
 
-สิ่งที่ยังอยากทำ:
+> We welcome contributors. Issues are written in Thai and English, and PRs in either language are fine.
 
-- [ ] เทสต์สำหรับ `cycle.js` (ไม่ใช้ dependency)
-- [ ] แจ้งเตือนล่วงหน้าผ่าน Notification API
-- [ ] รองรับหลายภาษา (อังกฤษ ลาว เขมร พม่า)
-- [ ] เข้ารหัสไฟล์สำรองด้วยรหัสผ่าน
-- [ ] โหมดวางแผนมีบุตร
-- [ ] ปรับปรุงการเข้าถึงด้วย screen reader ในหน้าปฏิทิน
+| อยากช่วยแบบ | ไปที่ | มี |
+|---|---|---|
+| 🌍 **แปลภาษา** — แตะไฟล์เดียว ไม่ต้องอ่านโค้ด | [`i18n`](https://github.com/duanganucha/daisydays-web/issues?q=is%3Aissue+is%3Aopen+label%3Ai18n) | 12 ภาษา |
+| 🧪 **เขียนเทสต์** — ตรรกะล้วน ไม่ต้องแตะ DOM | [`tests`](https://github.com/duanganucha/daisydays-web/issues?q=is%3Aissue+is%3Aopen+label%3Atests) | 5 ใบ |
+| ♿ **การเข้าถึง** | [`accessibility`](https://github.com/duanganucha/daisydays-web/issues?q=is%3Aissue+is%3Aopen+label%3Aaccessibility) | 4 ใบ |
+| 📝 **เนื้อหาสุขภาพ** — ไม่ต้องเขียนโค้ดเลย | [`content`](https://github.com/duanganucha/daisydays-web/issues?q=is%3Aissue+is%3Aopen+label%3Acontent) | 4 ใบ |
+| ✨ **ฟีเจอร์** | [`enhancement`](https://github.com/duanganucha/daisydays-web/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement) | 7 ใบ |
+| ⚙️ **CI / เครื่องมือ** | [`infra`](https://github.com/duanganucha/daisydays-web/issues?q=is%3Aissue+is%3Aopen+label%3Ainfra) | 5 ใบ |
+
+**เริ่มเลย:**
+
+```bash
+git clone https://github.com/duanganucha/daisydays-web.git
+cd daisydays-web
+npm test      # ไม่ต้อง npm install — โปรเจกต์นี้ไม่มี dependency
+npm start     # เปิด http://localhost:8000
+```
+
+คอมเมนต์ใน issue ว่าจะรับอันไหน ไม่ต้องขออนุญาต · อ่าน [CONTRIBUTING.md](CONTRIBUTING.md) ก่อนส่ง PR
+
+### อยากเพิ่มภาษาของคุณ?
+
+คัดลอก [`js/locales/en.js`](js/locales/en.js) เป็น `js/locales/<รหัสภาษา>.js` แล้วแปล — **แปลไม่ครบก็ merge ได้** คีย์ที่ขาดจะถอยไปใช้ภาษาไทยเอง แอปไม่พัง และ `npm test` จะบอกเองว่าขาดคีย์ไหน
+
+Copy [`js/locales/en.js`](js/locales/en.js), translate the values, and open a PR. **Partial translations are welcome** — missing keys fall back to Thai, and the test suite tells you exactly what is missing.
 
 ---
 
