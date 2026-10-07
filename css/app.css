@@ -1,0 +1,576 @@
+/* ==========================================================================
+   Daisy Days — สไตล์ทั้งหมด (CSS ล้วน ไม่มี framework)
+   โทนเดซี่: ชมพูอ่อน ครีม เขียวใบไม้
+   ========================================================================== */
+
+:root {
+  --bg: #fff8fb;
+  --bg-soft: #ffeef5;
+  --card: #ffffff;
+  --text: #3b2b33;
+  --muted: #8d7a84;
+  --line: #f2dfe8;
+
+  --pink: #e8769b;
+  --pink-soft: #ffd4e2;
+  --petal: #fdf0c7;
+  --leaf: #7fb286;
+  --leaf-soft: #d9ecdc;
+  --fertile: #cfe6f7;
+  --danger: #d1567a;
+
+  --radius: 18px;
+  --radius-sm: 12px;
+  --shadow: 0 2px 14px rgba(180, 120, 145, .10);
+  --shadow-lg: 0 -8px 32px rgba(120, 70, 90, .18);
+
+  --tab-h: 62px;
+}
+
+:root[data-theme="dark"],
+html:not([data-theme]) {
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) {
+    --bg: #1a1419;
+    --bg-soft: #241b22;
+    --card: #241b22;
+    --text: #f3e7ed;
+    --muted: #a8939e;
+    --line: #382b33;
+
+    --pink: #f090af;
+    --pink-soft: #5c2f41;
+    --petal: #4a4126;
+    --leaf: #8fc497;
+    --leaf-soft: #2c3f30;
+    --fertile: #2b3f4e;
+    --shadow: 0 2px 14px rgba(0, 0, 0, .35);
+    --shadow-lg: 0 -8px 32px rgba(0, 0, 0, .5);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #1a1419;
+  --bg-soft: #241b22;
+  --card: #241b22;
+  --text: #f3e7ed;
+  --muted: #a8939e;
+  --line: #382b33;
+  --pink: #f090af;
+  --pink-soft: #5c2f41;
+  --petal: #4a4126;
+  --leaf: #8fc497;
+  --leaf-soft: #2c3f30;
+  --fertile: #2b3f4e;
+  --shadow: 0 2px 14px rgba(0, 0, 0, .35);
+  --shadow-lg: 0 -8px 32px rgba(0, 0, 0, .5);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "IBM Plex Sans Thai", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+body { min-height: 100dvh; }
+
+.app {
+  max-width: 520px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom));
+  position: relative;
+}
+
+h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.35; }
+h1 { font-size: 1.22rem; }
+h2 { font-size: 1.02rem; margin-bottom: .5rem; }
+h3 { font-size: .85rem; color: var(--muted); margin: 1rem 0 .45rem; font-weight: 500; }
+p { margin: .35rem 0; line-height: 1.6; font-size: .9rem; }
+
+a { color: var(--pink); }
+.muted { color: var(--muted); font-size: .82rem; }
+.hidden { display: none; }
+
+/* ─────────────────────────────── แถบสถานะด้านบน ─────────────────────────────── */
+
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: calc(1.1rem + env(safe-area-inset-top)) 1.1rem 1.3rem;
+  background: linear-gradient(160deg, var(--bg-soft), var(--bg));
+  border-bottom: 1px solid var(--line);
+}
+
+.hero.slim { padding-bottom: 1rem; }
+.hero-text { flex: 1; min-width: 0; }
+.hero-text p { color: var(--muted); font-size: .84rem; }
+.hero-meta { font-size: .78rem !important; opacity: .85; }
+
+/* วงแหวนแสดงตำแหน่งในรอบ วาดด้วย conic-gradient */
+.hero-ring {
+  --p: 0;
+  flex: 0 0 72px;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background:
+    conic-gradient(var(--pink) calc(var(--p) * 360deg), var(--pink-soft) 0);
+  position: relative;
+}
+
+.hero-ring::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  background: var(--bg);
+}
+
+.hero-ring-day {
+  position: relative;
+  z-index: 1;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--pink);
+}
+
+.hero[data-phase="late"] .hero-ring { background: conic-gradient(var(--danger) calc(var(--p) * 360deg), var(--pink-soft) 0); }
+.hero[data-phase="fertile"] .hero-ring { background: conic-gradient(var(--leaf) calc(var(--p) * 360deg), var(--leaf-soft) 0); }
+.hero[data-phase="fertile"] .hero-ring-day { color: var(--leaf); }
+
+/* ─────────────────────────────── การ์ด ─────────────────────────────── */
+
+.content { padding: 1rem .9rem 1.4rem; }
+
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin-bottom: .9rem;
+  box-shadow: var(--shadow);
+}
+
+.empty-state { text-align: center; color: var(--muted); padding: 2rem 1rem; }
+
+/* ─────────────────────────────── ปฏิทิน ─────────────────────────────── */
+
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: .7rem;
+}
+
+.cal-title { font-weight: 600; font-size: 1rem; }
+
+.icon-btn {
+  border: none;
+  background: var(--bg-soft);
+  color: var(--text);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background .15s;
+}
+
+.icon-btn:hover { background: var(--pink-soft); }
+
+.cal-dow, .cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.cal-dow {
+  margin-bottom: .3rem;
+  font-size: .72rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.cal-cell {
+  aspect-ratio: 1;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  color: var(--text);
+  font-size: .86rem;
+  font-family: inherit;
+  cursor: pointer;
+  position: relative;
+  display: grid;
+  place-items: center;
+  transition: background .15s, transform .1s;
+}
+
+.cal-cell.empty { pointer-events: none; }
+.cal-cell:not(.empty):hover { background: var(--bg-soft); }
+.cal-cell:active { transform: scale(.92); }
+.cal-cell.is-future { color: var(--muted); }
+
+.cal-cell.is-fertile { background: var(--fertile); }
+.cal-cell.is-ovulation { box-shadow: inset 0 0 0 2px var(--leaf); }
+
+.cal-cell.is-predicted {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--pink-soft);
+  color: var(--pink);
+}
+
+.cal-cell.is-period {
+  background: var(--pink);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.cal-cell.is-today { outline: 2px solid var(--text); outline-offset: -2px; }
+
+.cal-dot {
+  position: absolute;
+  bottom: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--leaf);
+}
+
+.cal-cell.is-period .cal-dot { background: #fff; }
+
+/* คำอธิบายสัญลักษณ์ */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .6rem .9rem;
+  margin: .9rem 0 .7rem;
+  font-size: .74rem;
+  color: var(--muted);
+}
+
+.legend-item { display: inline-flex; align-items: center; gap: .3rem; }
+
+.swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.sw-period { background: var(--pink); }
+.sw-predicted { box-shadow: inset 0 0 0 2px var(--pink-soft); }
+.sw-fertile { background: var(--fertile); }
+.sw-logged { background: var(--leaf); width: 5px; height: 5px; }
+
+/* ─────────────────────────────── ปุ่ม ─────────────────────────────── */
+
+.ghost-btn {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  padding: .65rem 1rem;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: .86rem;
+  cursor: pointer;
+  transition: background .15s;
+}
+
+.ghost-btn:hover { background: var(--bg-soft); }
+.ghost-btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); margin-top: .6rem; }
+
+.btn-row { display: flex; gap: .5rem; margin-top: .7rem; }
+
+.period-btn {
+  width: 100%;
+  border: none;
+  background: var(--pink-soft);
+  color: var(--text);
+  padding: .8rem;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: .92rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: .3rem;
+  transition: filter .15s;
+}
+
+.period-btn.on { background: var(--pink); color: #fff; }
+.period-btn:hover { filter: brightness(.96); }
+
+/* ชิปเลือกตัวเลือก */
+.chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+
+.chip {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  padding: .4rem .75rem;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: .8rem;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+
+.chip:hover { background: var(--bg-soft); }
+.chip.on { background: var(--pink); border-color: var(--pink); color: #fff; }
+
+/* ─────────────────────── แผ่นบันทึกเลื่อนขึ้นจากล่าง ─────────────────────── */
+
+.sheet-wrap {
+  position: fixed;
+  inset: 0;
+  background: rgba(40, 20, 30, .4);
+  backdrop-filter: blur(2px);
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.sheet {
+  background: var(--card);
+  width: 100%;
+  max-width: 520px;
+  max-height: 88dvh;
+  overflow-y: auto;
+  border-radius: 24px 24px 0 0;
+  padding: .5rem 1.1rem calc(1.4rem + env(safe-area-inset-bottom));
+  box-shadow: var(--shadow-lg);
+  transform: translateY(100%);
+  transition: transform .22s cubic-bezier(.32, .72, 0, 1);
+}
+
+.sheet.open { transform: translateY(0); }
+
+.sheet-grip {
+  width: 38px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+  margin: .4rem auto .6rem;
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  margin-bottom: .6rem;
+}
+
+.note {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: .86rem;
+  padding: .6rem;
+  resize: vertical;
+}
+
+/* ─────────────────────────────── สถิติ ─────────────────────────────── */
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .7rem;
+  margin: .6rem 0 .9rem;
+}
+
+.stat {
+  background: var(--bg-soft);
+  border-radius: var(--radius-sm);
+  padding: .7rem .8rem;
+}
+
+.stat-label { display: block; font-size: .72rem; color: var(--muted); }
+.stat-value { display: block; font-size: 1.22rem; margin-top: .15rem; }
+.stat-hint { display: block; font-size: .7rem; color: var(--muted); }
+
+.badge {
+  display: inline-block;
+  padding: .3rem .7rem;
+  border-radius: 999px;
+  font-size: .78rem;
+  background: var(--leaf-soft);
+  color: var(--text);
+}
+
+.badge.warn { background: var(--petal); }
+
+/* กราฟแท่งความยาวรอบ */
+.chart {
+  display: flex;
+  align-items: flex-end;
+  gap: .5rem;
+  height: 150px;
+  padding-top: .5rem;
+}
+
+.bar-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  gap: .3rem;
+}
+
+.bar {
+  --h: 50%;
+  width: 100%;
+  max-width: 36px;
+  height: var(--h);
+  background: linear-gradient(var(--pink), var(--pink-soft));
+  border-radius: 8px 8px 4px 4px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: .2rem;
+  min-height: 22px;
+}
+
+.bar-val { font-size: .68rem; color: #fff; font-weight: 600; }
+.bar-label { font-size: .64rem; color: var(--muted); white-space: nowrap; }
+
+/* รายการอาการ */
+.sym-list { list-style: none; margin: 0; padding: 0; }
+
+.sym-list li {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr auto;
+  align-items: center;
+  gap: .5rem;
+  padding: .3rem 0;
+  font-size: .82rem;
+}
+
+.sym-bar {
+  --w: 0%;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--line);
+  position: relative;
+}
+
+.sym-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--w);
+  border-radius: 999px;
+  background: var(--pink);
+}
+
+/* ─────────────────────────────── ตั้งค่า ─────────────────────────────── */
+
+.field { display: block; margin: .8rem 0; }
+.field-label { display: block; font-size: .8rem; color: var(--muted); margin-bottom: .35rem; }
+
+.num {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: .9rem;
+  padding: .55rem .7rem;
+}
+
+.disclaimer {
+  font-size: .74rem !important;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+  padding-top: .7rem;
+  margin-top: .8rem;
+}
+
+/* ─────────────────────────────── แถบนำทางล่าง ─────────────────────────────── */
+
+.tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-width: 520px;
+  margin: 0 auto;
+  height: calc(var(--tab-h) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  display: flex;
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--line);
+  z-index: 40;
+}
+
+.tab {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: .68rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  transition: color .15s;
+}
+
+.tab.on { color: var(--pink); font-weight: 600; }
+.tab-icon { font-size: 1.1rem; line-height: 1; }
+
+/* ─────────────────────────────── Toast ─────────────────────────────── */
+
+.toast {
+  position: fixed;
+  bottom: calc(var(--tab-h) + 1.2rem + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translate(-50%, 12px);
+  background: var(--text);
+  color: var(--bg);
+  padding: .6rem 1.1rem;
+  border-radius: 999px;
+  font-size: .82rem;
+  z-index: 60;
+  opacity: 0;
+  transition: opacity .25s, transform .25s;
+  max-width: 90vw;
+  text-align: center;
+}
+
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ─────────────────────────────── เข้าถึงง่าย ─────────────────────────────── */
+
+:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

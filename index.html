@@ -1,46 +1,46 @@
 <!DOCTYPE html>
-<html>
+<html lang="th">
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Daisy Days — บันทึกรอบเดือนแบบออฟไลน์</title>
 
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
+<meta name="description" content="Daisy Days — แอปบันทึกรอบเดือนและอาการที่ทำงานออฟไลน์ 100% ข้อมูลอยู่ในเครื่องคุณเท่านั้น ไม่ต้องสมัครบัญชี ไม่มีการติดตาม">
+<meta name="theme-color" content="#fff8fb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1a1419" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
 
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Daisy Days">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
-  <base href="/daisydays-web/">
+<!-- Open Graph -->
+<meta property="og:title" content="Daisy Days">
+<meta property="og:description" content="บันทึกรอบเดือนแบบออฟไลน์ ข้อมูลอยู่ในเครื่องคุณเท่านั้น">
+<meta property="og:type" content="website">
 
-  <meta charset="UTF-8">
-  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="Daisy Days — offline-first period & symptom pattern tracker. Live web demo.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- iOS meta tags & icons -->
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="daisydays">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
-
-  <title>Daisy Days</title>
-  <link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="css/app.css">
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
-  <script src="flutter_bootstrap.js" async></script>
+<!-- แอปทั้งหมดถูกวาดด้วย js/app.js ลงใน #app -->
+<div id="app" class="app">
+  <noscript>
+    <div style="padding:2rem;text-align:center">
+      <h1>Daisy Days</h1>
+      <p>แอปนี้ต้องเปิดใช้งาน JavaScript เพื่อทำงาน — ข้อมูลทั้งหมดประมวลผลในเครื่องคุณ ไม่มีเซิร์ฟเวอร์</p>
+      <p>This app needs JavaScript. Everything runs locally in your browser; there is no server.</p>
+    </div>
+  </noscript>
+</div>
+
+<script type="module" src="js/app.js"></script>
 </body>
 </html>
