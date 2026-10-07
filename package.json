@@ -20,7 +20,7 @@
   ],
   "comment": "ไฟล์นี้มีไว้เพื่อ `npm test` และ `npm start` เท่านั้น แอปไม่มี dependency และไม่มี build step — ไม่ต้อง npm install",
   "scripts": {
-    "test": "node --test 'tests/*.test.js'",
+    "test": "node --test tests/*.test.js",
     "start": "python3 -m http.server 8000",
     "serve": "python3 -m http.server 8000"
   },

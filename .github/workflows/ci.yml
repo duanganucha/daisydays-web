@@ -24,8 +24,10 @@ jobs:
           node-version: ${{ matrix.node }}
 
       # ไม่มี npm install เพราะโปรเจกต์นี้ไม่มี dependency เลย — นั่นคือข้อตกลงของโปรเจกต์
+      # ปล่อย glob ไม่ใส่เครื่องหมายคำพูด ให้ shell ขยายเอง
+      # Node 20 ยังไม่รองรับ glob ใน --test (เพิ่งมาใน 22) แบบนี้ใช้ได้ทุกเวอร์ชัน
       - name: รันเทสต์
-        run: node --test 'tests/*.test.js'
+        run: node --test tests/*.test.js
 
   no-dependencies:
     name: ต้องไม่มี dependency

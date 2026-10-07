@@ -23,7 +23,7 @@ python3 -m http.server 8000   # หรือ npx serve
 ### รันเทสต์
 
 ```bash
-npm test          # = node --test 'tests/*.test.js'
+npm test          # = node --test tests/*.test.js
 ```
 
 ใช้ `node:test` ที่มาพร้อม Node (ต้อง Node 20 ขึ้นไป) **ไม่มี dependency ให้ติดตั้ง** ไม่ต้อง `npm install`
