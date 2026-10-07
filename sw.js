@@ -9,7 +9,7 @@
  * ขึ้นเลขนี้ทุกครั้งที่แก้ไฟล์ใน ASSETS
  * ถ้าไม่ขึ้น ผู้ใช้เดิมจะยังได้ไฟล์เก่าจากแคชต่อไปเพราะกลยุทธ์เป็น cache-first
  */
-const CACHE = 'daisydays-v2';
+const CACHE = 'daisydays-v3';
 
 const ASSETS = [
   '.',
