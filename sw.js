@@ -9,7 +9,7 @@
  * ขึ้นเลขนี้ทุกครั้งที่แก้ไฟล์ใน ASSETS
  * ถ้าไม่ขึ้น ผู้ใช้เดิมจะยังได้ไฟล์เก่าจากแคชต่อไปเพราะกลยุทธ์เป็น cache-first
  */
-const CACHE = 'daisydays-v4';
+const CACHE = 'daisydays-v5';
 
 const ASSETS = [
   '.',
@@ -24,6 +24,7 @@ const ASSETS = [
   // ── เพิ่มไฟล์ภาษาใหม่ที่นี่ แล้วขึ้นเลข CACHE ด้านบน ──
   'js/locales/th.js',
   'js/locales/en.js',
+  'js/locales/ko.js',
   'manifest.json',
   'icons/icon.svg',
   'icons/icon-192.png',
