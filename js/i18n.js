@@ -12,6 +12,7 @@
 
 import th from './locales/th.js';
 import en from './locales/en.js';
+import ko from './locales/ko.js';
 // ── เพิ่มภาษาใหม่: import ที่นี่ ──
 // import lo from './locales/lo.js';
 
@@ -19,6 +20,7 @@ import en from './locales/en.js';
 export const LOCALES = {
   th,
   en,
+  ko,
   // ── แล้วใส่ที่นี่ ──
   // lo,
 };
